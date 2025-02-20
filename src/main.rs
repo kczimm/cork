@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use fs_extra::dir::create_all;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
 #[derive(Parser)]
@@ -61,7 +62,10 @@ fn run_project(release: bool) -> Result<(), String> {
 fn create_new_project(name: &str) -> Result<(), String> {
     let project_dir = Path::new(name);
     if project_dir.exists() {
-        return Err(format!("error: destination `{name}` already exists"));
+        return Err(format!(
+            "{}: destination `{name}` already exists",
+            "error".red()
+        ));
     }
 
     create_all(project_dir, false).map_err(|e| e.to_string())?;
@@ -121,6 +125,8 @@ version = "0.1.0"
     let status = Command::new("git")
         .current_dir(project_dir)
         .arg("init")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map_err(|e| format!("Failed to initialize git repository: {e}"))?;
 
@@ -128,7 +134,8 @@ version = "0.1.0"
         return Err("Failed to initialize Git repository".to_string());
     }
 
-    println!("Created new project: {name}");
+    println!("   {} project `{name}`", "Creating".green());
+
     Ok(())
 }
 
