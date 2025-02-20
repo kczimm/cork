@@ -1,6 +1,6 @@
 # Cork: A Build System for C Projects
 
-Cork is a Rust-based build tool inspired by [Cargo](https://doc.rust-lang.org/cargo/), designed to streamline the process of managing, building, and running C projects, inspired by Rust's Cargo. It aims to provide a simple, consistent, and efficient way to handle project initialization, building, running, and cleaning for C developers.
+Cork is a Rust-based build tool designed to streamline the process of managing, building, and running C projects, inspired by Rust's [Cargo](https://doc.rust-lang.org/cargo/). It aims to provide a simple, consistent, and efficient way to handle project initialization, building, running, and cleaning for C developers.
 
 ## Features
 
@@ -27,7 +27,7 @@ cd cork
 cargo build --release
 ````
 
-The binary will be located in the target/release directory. You can then move the binary to a directory in your $PATH or use it directly from there.
+The binary will be located in the target/release directory. You can then move the binary to a directory in your `$PATH` or use it directly from there.
 
 ### Usage
 Here's how to use cork for different operations:
