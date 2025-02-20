@@ -20,7 +20,10 @@ enum Commands {
     /// Creates a new C project
     New { name: String },
     /// Builds the C project
-    Build,
+    Build {
+        #[arg(long)]
+        release: bool,
+    },
     /// Builds and runs the C project
     Run,
 }
@@ -80,13 +83,24 @@ version = "0.1.0"
     );
     fs::write(project_dir.join("Cork.toml"), cork_toml).map_err(|e| e.to_string())?;
 
+    // Write .gitignore
+    let gitignore_content = r#"build/
+"#;
+    fs::write(project_dir.join(".gitignore"), gitignore_content).map_err(|e| e.to_string())?;
+
     println!("Created new project: {}", name);
     Ok(())
 }
 
-fn build_project() -> Result<(), String> {
+fn build_project(release: bool) -> Result<(), String> {
     let src_dir = Path::new("src");
     let include_dir = Path::new("include");
+    let build_dir = Path::new("build");
+    let build_subdir = if release { "release" } else { "debug" };
+
+    // Create build directories if they don't exist
+    create_all(build_dir.join(build_subdir), true)
+        .map_err(|e| format!("Failed to create build directory: {}", e))?;
 
     // Collect all .c files in src directory
     let source_files: Vec<_> = fs::read_dir(src_dir)
@@ -100,10 +114,10 @@ fn build_project() -> Result<(), String> {
         return Err("No source files found in src directory!".to_string());
     }
 
-    let output_executable = "project";
+    let output_executable = build_dir.join(build_subdir).join("project");
 
     let mut cmd = Command::new("gcc");
-    cmd.arg("-o").arg(output_executable);
+    cmd.arg("-o").arg(&output_executable);
 
     for file in source_files {
         cmd.arg(file);
@@ -111,6 +125,11 @@ fn build_project() -> Result<(), String> {
 
     // Add include directory
     cmd.arg("-I").arg(include_dir);
+
+    // Add optimization flag for release builds
+    if release {
+        cmd.arg("-O3");
+    }
 
     let status = cmd
         .status()
@@ -133,9 +152,9 @@ fn main() {
                 eprintln!("Error: {}", e);
             }
         }
-        Commands::Build => {
-            if let Err(e) = build_project() {
-                eprintln!("Error: {}", e);
+        Commands::Build { release } => {
+            if let Err(e) = build_project(release) {
+                eprintln!("Build failed: {}", e);
             }
         }
         Commands::Run => {
