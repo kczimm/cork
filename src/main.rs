@@ -20,11 +20,13 @@ enum Commands {
     /// Creates a new C project
     New { name: String },
     /// Builds the C project
+    #[command(alias = "b")]
     Build {
         #[arg(long)]
         release: bool,
     },
     /// Builds and runs the C project
+    #[command(alias = "r")]
     Run,
 }
 
