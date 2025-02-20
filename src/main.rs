@@ -39,7 +39,7 @@ fn run_project(release: bool) -> Result<(), String> {
     let executable_path = build_dir.join(build_subdir).join("project");
 
     if !executable_path.exists() {
-        return Err(format!("Executable not found at {:?}", executable_path));
+        build_project(release)?; // Build the project if not built
     }
 
     let status = Command::new(executable_path)
@@ -166,7 +166,6 @@ fn build_project(release: bool) -> Result<(), String> {
         return Err("Compilation failed".to_string());
     }
 
-    println!("Build successful!");
     Ok(())
 }
 
