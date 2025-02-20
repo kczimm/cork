@@ -47,7 +47,7 @@ fn run_project(release: bool) -> Result<(), String> {
 
     let status = Command::new(executable_path)
         .status()
-        .map_err(|e| format!("Failed to run the project: {}", e))?;
+        .map_err(|e| format!("Failed to run the project: {e}"))?;
 
     if !status.success() {
         return Err(format!(
@@ -61,7 +61,7 @@ fn run_project(release: bool) -> Result<(), String> {
 fn create_new_project(name: &str) -> Result<(), String> {
     let project_dir = Path::new(name);
     if project_dir.exists() {
-        return Err(format!("Directory '{}' already exists!", name));
+        return Err(format!("error: destination `{name}` already exists"));
     }
 
     create_all(project_dir, false).map_err(|e| e.to_string())?;
@@ -106,10 +106,9 @@ int main() {
     // Write Cork.toml
     let cork_toml = format!(
         r#"[project]
-name = "{}"
+name = "{name}"
 version = "0.1.0"
-"#,
-        name
+"#
     );
     fs::write(project_dir.join("Cork.toml"), cork_toml).map_err(|e| e.to_string())?;
 
@@ -123,13 +122,13 @@ version = "0.1.0"
         .current_dir(project_dir)
         .arg("init")
         .status()
-        .map_err(|e| format!("Failed to initialize git repository: {}", e))?;
+        .map_err(|e| format!("Failed to initialize git repository: {e}"))?;
 
     if !status.success() {
         return Err("Failed to initialize Git repository".to_string());
     }
 
-    println!("Created new project: {}", name);
+    println!("Created new project: {name}");
     Ok(())
 }
 
@@ -152,11 +151,11 @@ fn build_project(release: bool) -> Result<(), String> {
 
     // Create build directories if they don't exist
     create_all(build_dir.join(build_subdir), true)
-        .map_err(|e| format!("Failed to create build directory: {}", e))?;
+        .map_err(|e| format!("Failed to create build directory: {e}"))?;
 
     // Collect all .c files in src directory
     let source_files: Vec<_> = fs::read_dir(src_dir)
-        .map_err(|e| format!("Failed to read src directory: {}", e))?
+        .map_err(|e| format!("Failed to read src directory: {e}"))?
         .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().and_then(|e| e.to_str()) == Some("c"))
         .map(|entry| entry.path())
@@ -185,7 +184,7 @@ fn build_project(release: bool) -> Result<(), String> {
 
     let status = cmd
         .status()
-        .map_err(|e| format!("Failed to execute gcc: {}", e))?;
+        .map_err(|e| format!("Failed to execute gcc: {e}"))?;
 
     if !status.success() {
         return Err("Compilation failed".to_string());
@@ -206,7 +205,7 @@ fn clean_project() -> Result<(), String> {
     let mut file_count: u64 = 0;
 
     for entry in WalkDir::new(build_dir) {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
         let path = entry.path();
 
         if path.is_file() {
@@ -215,16 +214,16 @@ fn clean_project() -> Result<(), String> {
                     total_size += metadata.len();
                     file_count += 1;
                 }
-                Err(e) => eprintln!("Failed to get metadata for {}: {}", path.display(), e),
+                Err(e) => eprintln!("Failed to get metadata for {}: {e}", path.display()),
             }
         }
     }
 
-    fs::remove_dir_all(build_dir).map_err(|e| format!("Failed to clean build directory: {}", e))?;
+    fs::remove_dir_all(build_dir).map_err(|e| format!("Failed to clean build directory: {e}"))?;
 
     // Convert size to MiB
     let size_in_mib = total_size as f64 / (1024.0 * 1024.0);
-    println!("Removed {} files, {:.1}MiB total", file_count, size_in_mib);
+    println!("Removed {file_count} files, {size_in_mib:.1}MiB total");
 
     Ok(())
 }
