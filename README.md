@@ -54,13 +54,14 @@ cork clean
 ```
 
 - Short aliases for commands:
-- - `cork b` for `build`
-- - `cork r` for `run`
-- - `cork c` for `clean`
+ - `cork b` for `build`
+ - `cork r` for `run`
+ - `cork c` for `clean`
 
 ### Project Structure
 Cork expects and creates the following project structure:
 
+```
 myproject/
 ├── src/
 │   ├── main.c
@@ -73,17 +74,18 @@ myproject/
 ├── Cork.toml
 ├── .gitignore
 └── .git/
+```
 
 ### Commands Overview
-`cork new <project-name>`: Generates a new project directory with the basic structure.
-`cork build [--release]`: Compiles the project. Use `--release` for optimized builds.
-`cork run [--release]`: Builds (if necessary) and runs the project.
-`cork clean`: Removes the `build` directory, cleaning up all build artifacts.
+- `cork new <project-name>`: Generates a new project directory with the basic structure.
+- `cork build [--release]`: Compiles the project. Use `--release` for optimized builds.
+- `cork run [--release]`: Builds (if necessary) and runs the project.
+- `cork clean`: Removes the `build` directory, cleaning up all build artifacts.
 
 ### Contributing
 Contributions are welcome! Here's how you can contribute:
-Fork the repository
-Create your feature branch (`git checkout -b feature/AmazingFeature`)
-Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-Push to the branch (`git push origin feature/AmazingFeature`)
-Open a pull request
+- Fork the repository
+- Create your feature branch (`git checkout -b feature/AmazingFeature`)
+- Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+- Push to the branch (`git push origin feature/AmazingFeature`)
+- Open a pull request
