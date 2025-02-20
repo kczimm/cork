@@ -31,6 +31,8 @@ enum Commands {
         #[arg(long)]
         release: bool,
     },
+    /// Cleans the build directory
+    Clean,
 }
 
 fn run_project(release: bool) -> Result<(), String> {
@@ -191,6 +193,20 @@ fn build_project(release: bool) -> Result<(), String> {
     Ok(())
 }
 
+fn clean_project() -> Result<(), String> {
+    let build_dir = Path::new("build");
+
+    if build_dir.exists() {
+        fs::remove_dir_all(build_dir)
+            .map_err(|e| format!("Failed to clean build directory: {}", e))?;
+        println!("Cleaned build directory.");
+    } else {
+        println!("Build directory does not exist. Nothing to clean.");
+    }
+
+    Ok(())
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -198,6 +214,7 @@ fn main() {
         Commands::New { name } => create_new_project(&name),
         Commands::Build { release } => build_project(release),
         Commands::Run { release } => run_project(release),
+        Commands::Clean => clean_project(),
     };
 
     if let Err(e) = result {
@@ -262,5 +279,31 @@ mod tests {
 
         let result = run_project(false); // Debug run
         assert!(result.is_ok(), "Run failed: {:?}", result);
+    }
+
+    #[test]
+    fn test_clean_project() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let test_project_name = "clean_test";
+        let project_path = temp_dir.path().join(test_project_name);
+
+        create_new_project(&project_path.to_string_lossy())
+            .expect("Failed to create project for clean test");
+        std::env::set_current_dir(&project_path).expect("Failed to change to project directory");
+
+        // Build to create some artifacts
+        build_project(false).expect("Failed to build project for clean test");
+
+        assert!(
+            Path::new("build").exists(),
+            "Build directory should exist before cleaning"
+        );
+
+        clean_project().expect("Clean failed");
+
+        assert!(
+            !Path::new("build").exists(),
+            "Build directory should not exist after cleaning"
+        );
     }
 }
