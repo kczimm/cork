@@ -115,6 +115,17 @@ version = "0.1.0"
 "#;
     fs::write(project_dir.join(".gitignore"), gitignore_content).map_err(|e| e.to_string())?;
 
+    // Initialize Git repository
+    let status = Command::new("git")
+        .current_dir(project_dir)
+        .arg("init")
+        .status()
+        .map_err(|e| format!("Failed to initialize git repository: {}", e))?;
+
+    if !status.success() {
+        return Err("Failed to initialize Git repository".to_string());
+    }
+
     println!("Created new project: {}", name);
     Ok(())
 }
