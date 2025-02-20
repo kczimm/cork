@@ -131,6 +131,17 @@ version = "0.1.0"
 }
 
 fn build_project(release: bool) -> Result<(), String> {
+    let cork_toml_path = Path::new("Cork.toml");
+
+    if !cork_toml_path.exists() {
+        return Err(format!(
+            "error: could not find `Cork.toml` in `{}`",
+            std::env::current_dir()
+                .unwrap_or_default()
+                .to_string_lossy()
+        ));
+    }
+
     let src_dir = Path::new("src");
     let include_dir = Path::new("include");
     let build_dir = Path::new("build");
@@ -183,22 +194,14 @@ fn build_project(release: bool) -> Result<(), String> {
 fn main() {
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::New { name } => {
-            if let Err(e) = create_new_project(&name) {
-                eprintln!("Error: {}", e);
-            }
-        }
-        Commands::Build { release } => {
-            if let Err(e) = build_project(release) {
-                eprintln!("Build failed: {}", e);
-            }
-        }
-        Commands::Run { release } => {
-            if let Err(e) = run_project(release) {
-                eprintln!("Run failed: {}", e);
-            }
-        }
+    let result = match cli.command {
+        Commands::New { name } => create_new_project(&name),
+        Commands::Build { release } => build_project(release),
+        Commands::Run { release } => run_project(release),
+    };
+
+    if let Err(e) = result {
+        eprintln!("{e}");
     }
 }
 
