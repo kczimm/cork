@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use fs_extra::dir::create_all;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
@@ -38,13 +38,7 @@ enum Commands {
 }
 
 fn run_project(release: bool) -> Result<(), String> {
-    let build_dir = Path::new("build");
-    let build_subdir = if release { "release" } else { "debug" };
-    let executable_path = build_dir.join(build_subdir).join("project");
-
-    if !executable_path.exists() {
-        build_project(release)?; // Build the project if not built
-    }
+    let executable_path = build_project(release)?;
 
     let status = Command::new(executable_path)
         .status()
@@ -139,7 +133,7 @@ version = "0.1.0"
     Ok(())
 }
 
-fn build_project(release: bool) -> Result<(), String> {
+fn build_project(release: bool) -> Result<PathBuf, String> {
     let cork_toml_path = Path::new("Cork.toml");
 
     if !cork_toml_path.exists() {
@@ -155,10 +149,11 @@ fn build_project(release: bool) -> Result<(), String> {
     let include_dir = Path::new("include");
     let build_dir = Path::new("build");
     let build_subdir = if release { "release" } else { "debug" };
+    let obj_dir = build_dir.join(build_subdir).join("obj");
+    let output_executable = build_dir.join(build_subdir).join("project");
 
-    // Create build directories if they don't exist
-    create_all(build_dir.join(build_subdir), true)
-        .map_err(|e| format!("Failed to create build directory: {e}"))?;
+    // Create directories
+    create_all(&obj_dir, true).map_err(|e| format!("Failed to create obj directory: {e}"))?;
 
     // Collect all .c files in src directory
     let source_files: Vec<_> = fs::read_dir(src_dir)
@@ -172,32 +167,88 @@ fn build_project(release: bool) -> Result<(), String> {
         return Err("No source files found in src directory!".to_string());
     }
 
-    let output_executable = build_dir.join(build_subdir).join("project");
+    // Collect all .h files in include directory (for dependency checking)
+    let header_files: Vec<_> = fs::read_dir(include_dir)
+        .map_err(|e| format!("Failed to read include directory: {e}"))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().and_then(|e| e.to_str()) == Some("h"))
+        .map(|entry| entry.path())
+        .collect();
 
-    let mut cmd = Command::new("gcc");
-    cmd.arg("-o").arg(&output_executable);
+    let mut objects_to_link = Vec::new();
+    let mut needs_link = !output_executable.exists();
 
-    for file in source_files {
-        cmd.arg(file);
+    for src_file in &source_files {
+        let obj_file = obj_dir.join(
+            src_file
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .replace(".c", ".o"),
+        );
+        objects_to_link.push(obj_file.clone());
+
+        let src_time = src_file.metadata().and_then(|m| m.modified()).ok();
+        let obj_time = obj_file.metadata().and_then(|m| m.modified()).ok();
+
+        // Check if source or any header is newer than the object file
+        let needs_compile = src_time.map_or(true, |st| {
+            obj_time.map_or(true, |ot| {
+                st > ot
+                    || header_files.iter().any(|h| {
+                        h.metadata()
+                            .and_then(|m| m.modified())
+                            .map(|ht| ht > ot)
+                            .unwrap_or(true)
+                    })
+            })
+        });
+
+        if needs_compile {
+            let mut cmd = Command::new("gcc");
+            cmd.arg("-c") // Compile only, no linking
+                .arg(src_file)
+                .arg("-o")
+                .arg(&obj_file)
+                .arg("-I")
+                .arg(include_dir);
+
+            if release {
+                cmd.arg("-O3");
+            }
+
+            let output = cmd
+                .output()
+                .map_err(|e| format!("Failed to compile {src_file:?}: {e}"))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(stderr.to_string());
+            }
+            needs_link = true; // New object file means we need to link
+        }
     }
 
-    // Add include directory
-    cmd.arg("-I").arg(include_dir);
+    // Link if necessary
+    if needs_link {
+        let mut cmd = Command::new("gcc");
+        cmd.arg("-o").arg(&output_executable);
+        for obj in &objects_to_link {
+            cmd.arg(obj);
+        }
 
-    // Add optimization flag for release builds
-    if release {
-        cmd.arg("-O3");
+        cmd.output().map_err(|e| format!("Failed to link: {e}"))?;
+
+        let status = cmd
+            .status()
+            .map_err(|e| format!("Failed to execute gcc: {e}"))?;
+
+        if !status.success() {
+            return Err("Compilation failed".to_string());
+        }
     }
 
-    let status = cmd
-        .status()
-        .map_err(|e| format!("Failed to execute gcc: {e}"))?;
-
-    if !status.success() {
-        return Err("Compilation failed".to_string());
-    }
-
-    Ok(())
+    Ok(output_executable)
 }
 
 fn clean_project() -> Result<(), String> {
@@ -240,7 +291,7 @@ fn main() {
 
     let result = match cli.command {
         Commands::New { name } => create_new_project(&name),
-        Commands::Build { release } => build_project(release),
+        Commands::Build { release } => build_project(release).map(|_| ()),
         Commands::Run { release } => run_project(release),
         Commands::Clean => clean_project(),
     };
@@ -290,6 +341,66 @@ mod tests {
             Path::new("build/debug/project").exists(),
             "Executable not created"
         );
+        assert!(
+            Path::new("build/debug/obj/main.o").exists(),
+            "Object file not created"
+        );
+    }
+
+    #[test]
+    fn test_build_only_if_changed() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let test_project_name = "change_test";
+        let project_path = temp_dir.path().join(test_project_name);
+
+        create_new_project(&project_path.to_string_lossy()).expect("Failed to create project");
+        std::env::set_current_dir(&project_path).expect("Failed to change to project directory");
+
+        // First build
+        build_project(false).expect("Initial build failed");
+        let initial_obj_time = fs::metadata("build/debug/obj/main.o")
+            .and_then(|m| m.modified())
+            .expect("Failed to get initial obj time");
+        let initial_exe_time = fs::metadata("build/debug/project")
+            .and_then(|m| m.modified())
+            .expect("Failed to get initial exe time");
+
+        // Second build (no changes)
+        build_project(false).expect("Second build failed");
+        let second_obj_time = fs::metadata("build/debug/obj/main.o")
+            .and_then(|m| m.modified())
+            .expect("Failed to get second obj time");
+        let second_exe_time = fs::metadata("build/debug/project")
+            .and_then(|m| m.modified())
+            .expect("Failed to get second exe time");
+        assert_eq!(
+            initial_obj_time, second_obj_time,
+            "Object should not recompile"
+        );
+        assert_eq!(
+            initial_exe_time, second_exe_time,
+            "Executable should not relink"
+        );
+
+        // Modify a source file
+        let main_c_path = Path::new("src/main.c");
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(main_c_path)
+            .expect("Failed to open main.c");
+        use std::io::Write;
+        writeln!(file, "\n// Modified").expect("Failed to modify main.c");
+
+        // Third build (after change)
+        build_project(false).expect("Third build failed");
+        let third_obj_time = fs::metadata("build/debug/obj/main.o")
+            .and_then(|m| m.modified())
+            .expect("Failed to get third obj time");
+        let third_exe_time = fs::metadata("build/debug/project")
+            .and_then(|m| m.modified())
+            .expect("Failed to get third exe time");
+        assert!(third_obj_time > second_obj_time, "Object should recompile");
+        assert!(third_exe_time > second_exe_time, "Executable should relink");
     }
 
     #[test]
