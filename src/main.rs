@@ -27,7 +27,32 @@ enum Commands {
     },
     /// Builds and runs the C project
     #[command(alias = "r")]
-    Run,
+    Run {
+        #[arg(long)]
+        release: bool,
+    },
+}
+
+fn run_project(release: bool) -> Result<(), String> {
+    let build_dir = Path::new("build");
+    let build_subdir = if release { "release" } else { "debug" };
+    let executable_path = build_dir.join(build_subdir).join("project");
+
+    if !executable_path.exists() {
+        return Err(format!("Executable not found at {:?}", executable_path));
+    }
+
+    let status = Command::new(executable_path)
+        .status()
+        .map_err(|e| format!("Failed to run the project: {}", e))?;
+
+    if !status.success() {
+        return Err(format!(
+            "Project execution failed with exit code: {}",
+            status.code().unwrap_or(-1)
+        ));
+    }
+    Ok(())
 }
 
 fn create_new_project(name: &str) -> Result<(), String> {
@@ -159,8 +184,10 @@ fn main() {
                 eprintln!("Build failed: {}", e);
             }
         }
-        Commands::Run => {
-            println!("Running project...");
+        Commands::Run { release } => {
+            if let Err(e) = run_project(release) {
+                eprintln!("Run failed: {}", e);
+            }
         }
     }
 }
