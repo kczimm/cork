@@ -190,3 +190,63 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_create_new_project() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let test_project_name = "test_project";
+        let project_path = temp_dir.path().join(test_project_name);
+
+        let result = create_new_project(&project_path.to_string_lossy());
+        assert!(result.is_ok(), "Failed to create new project: {:?}", result);
+
+        assert!(project_path.exists(), "Project directory was not created");
+        assert!(project_path.join("src/main.c").exists());
+        assert!(project_path.join("include/headers.h").exists());
+        assert!(project_path.join("tests/test_main.c").exists());
+        assert!(project_path.join("Cork.toml").exists());
+        assert!(project_path.join(".gitignore").exists());
+    }
+
+    #[test]
+    fn test_build_project() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let test_project_name = "build_test";
+        let project_path = temp_dir.path().join(test_project_name);
+
+        create_new_project(&project_path.to_string_lossy())
+            .expect("Failed to create project for build test");
+        std::env::set_current_dir(&project_path).expect("Failed to change to project directory");
+
+        let result = build_project(false); // Debug build
+        assert!(result.is_ok(), "Build failed: {:?}", result);
+
+        assert!(
+            Path::new("build/debug/project").exists(),
+            "Executable not created"
+        );
+    }
+
+    #[test]
+    fn test_run_project() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let test_project_name = "run_test";
+        let project_path = temp_dir.path().join(test_project_name);
+
+        create_new_project(&project_path.to_string_lossy())
+            .expect("Failed to create project for run test");
+        std::env::set_current_dir(&project_path).expect("Failed to change to project directory");
+
+        // Build the project first
+        build_project(false).expect("Failed to build project for run test");
+
+        let result = run_project(false); // Debug run
+        assert!(result.is_ok(), "Run failed: {:?}", result);
+    }
+}
