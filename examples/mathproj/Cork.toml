@@ -1,3 +1,6 @@
 [project]
 name = "mathproj"
 version = "0.1.0"
+
+[dependencies]
+addlib = { path = "../addlib" }

@@ -1,8 +1,28 @@
 use colored::Colorize;
 use fs_extra::dir::create_all;
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
+
+#[derive(Deserialize)]
+pub struct CorkConfig {
+    pub project: ProjectConfig,
+    #[serde(default)] // Empty map if no dependencies section
+    pub dependencies: HashMap<String, Dependency>,
+}
+
+#[derive(Deserialize)]
+pub struct ProjectConfig {
+    pub name: String,
+    pub version: String,
+}
+
+#[derive(Deserialize)]
+pub struct Dependency {
+    pub path: String, // For now, only local paths; can extend to Git later
+}
 
 pub fn create_new_project(name: &str) -> Result<(), String> {
     let project_dir = Path::new(name);
@@ -19,9 +39,8 @@ pub fn create_new_project(name: &str) -> Result<(), String> {
     create_all(project_dir.join("include"), true).map_err(|e| e.to_string())?;
     create_all(project_dir.join("tests"), true).map_err(|e| e.to_string())?;
 
-    // src/main.c (uses public header)
     let main_c = r#"#include <stdio.h>
-#include "headers.h"  // Public header
+#include "headers.h"
 
 int main() {
     printf("Hello, Cork!\n");
@@ -30,7 +49,6 @@ int main() {
 "#;
     fs::write(project_dir.join("src/main.c"), main_c).map_err(|e| e.to_string())?;
 
-    // include/headers.h (public interface)
     let headers_h = r#"#ifndef HEADERS_H
 #define HEADERS_H
 
@@ -40,9 +58,8 @@ void some_function(void);
 "#;
     fs::write(project_dir.join("include/headers.h"), headers_h).map_err(|e| e.to_string())?;
 
-    // tests/test_main.c (uses public header)
     let test_main_c = r#"#include <stdio.h>
-#include "headers.h"  // Public header
+#include "headers.h"
 
 int main() {
     printf("Running tests\n");
@@ -55,9 +72,11 @@ int main() {
         r#"[project]
 name = "{name}"
 version = "0.1.0"
+
+[dependencies]
 "#
     );
-    fs::write(project_dir.join("Cork.toml"), cork_toml).map_err(|e| e.to_string())?;
+    fs::write(project_dir.join("Cork.toml"), &cork_toml).map_err(|e| e.to_string())?;
 
     let gitignore_content = r#"build/
 "#;
