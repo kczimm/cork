@@ -15,11 +15,13 @@ pub fn create_new_project(name: &str) -> Result<(), String> {
 
     create_all(project_dir, false).map_err(|e| e.to_string())?;
     create_all(project_dir.join("src"), true).map_err(|e| e.to_string())?;
+    create_all(project_dir.join("src/include"), true).map_err(|e| e.to_string())?;
     create_all(project_dir.join("include"), true).map_err(|e| e.to_string())?;
     create_all(project_dir.join("tests"), true).map_err(|e| e.to_string())?;
 
+    // src/main.c (uses public header)
     let main_c = r#"#include <stdio.h>
-#include "../include/headers.h"
+#include "headers.h"  // Public header
 
 int main() {
     printf("Hello, Cork!\n");
@@ -28,6 +30,7 @@ int main() {
 "#;
     fs::write(project_dir.join("src/main.c"), main_c).map_err(|e| e.to_string())?;
 
+    // include/headers.h (public interface)
     let headers_h = r#"#ifndef HEADERS_H
 #define HEADERS_H
 
@@ -37,8 +40,9 @@ void some_function(void);
 "#;
     fs::write(project_dir.join("include/headers.h"), headers_h).map_err(|e| e.to_string())?;
 
+    // tests/test_main.c (uses public header)
     let test_main_c = r#"#include <stdio.h>
-#include "../include/headers.h"
+#include "headers.h"  // Public header
 
 int main() {
     printf("Running tests\n");

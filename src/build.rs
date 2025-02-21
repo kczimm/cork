@@ -16,7 +16,8 @@ pub fn build_project(release: bool) -> Result<PathBuf, String> {
     }
 
     let src_dir = Path::new("src");
-    let include_dir = Path::new("include");
+    let private_include_dir = Path::new("src/include"); // Private headers
+    let public_include_dir = Path::new("include"); // Public headers
     let build_dir = Path::new("build");
     let build_subdir = if release { "release" } else { "debug" };
     let obj_dir = build_dir.join(build_subdir).join("obj");
@@ -35,8 +36,16 @@ pub fn build_project(release: bool) -> Result<PathBuf, String> {
         return Err("No source files found in src directory!".to_string());
     }
 
-    let header_files: Vec<_> = fs::read_dir(include_dir)
+    // Check both public and private headers for changes
+    let public_headers: Vec<_> = fs::read_dir(public_include_dir)
         .map_err(|e| format!("Failed to read include directory: {e}"))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().and_then(|e| e.to_str()) == Some("h"))
+        .map(|entry| entry.path())
+        .collect();
+
+    let private_headers: Vec<_> = fs::read_dir(private_include_dir)
+        .map_err(|e| format!("Failed to read src/include directory: {e}"))?
         .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().and_then(|e| e.to_str()) == Some("h"))
         .map(|entry| entry.path())
@@ -61,12 +70,15 @@ pub fn build_project(release: bool) -> Result<PathBuf, String> {
         let needs_compile = src_time.map_or(true, |st| {
             obj_time.map_or(true, |ot| {
                 st > ot
-                    || header_files.iter().any(|h| {
-                        h.metadata()
-                            .and_then(|m| m.modified())
-                            .map(|ht| ht > ot)
-                            .unwrap_or(true)
-                    })
+                    || public_headers
+                        .iter()
+                        .chain(private_headers.iter())
+                        .any(|h| {
+                            h.metadata()
+                                .and_then(|m| m.modified())
+                                .map(|ht| ht > ot)
+                                .unwrap_or(true)
+                        })
             })
         });
 
@@ -77,7 +89,9 @@ pub fn build_project(release: bool) -> Result<PathBuf, String> {
                 .arg("-o")
                 .arg(&obj_file)
                 .arg("-I")
-                .arg(include_dir);
+                .arg(public_include_dir) // Public headers
+                .arg("-I")
+                .arg(private_include_dir); // Private headers
 
             if release {
                 cmd.arg("-O3");

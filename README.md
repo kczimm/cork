@@ -65,15 +65,14 @@ Cork expects and creates the following project structure:
 myproject/
 ├── src/
 │   ├── main.c
-│   └── ... other source files
-├── include/
-│   ├── headers.h
-│   └── ... other header files
+│   └── include/       # Private headers
+│       └── internal.h
+├── include/           # Public headers
+│   └── myproject.h
 ├── tests/
-│   └── ... test files
+│   └── test_main.c
 ├── Cork.toml
-├── .gitignore
-└── .git/
+└── .gitignore
 ```
 
 ### Commands Overview
