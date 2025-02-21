@@ -1,6 +1,6 @@
 # Cork: A Build System for C Projects
 
-Cork is a Rust-based build tool designed to streamline the process of managing, building, and running C projects, inspired by Rust's [Cargo](https://doc.rust-lang.org/cargo/). It aims to provide a simple, consistent, and efficient way to handle project initialization, building, running, and cleaning for C developers.
+Cork is a build tool designed to streamline the process of managing, building, and running C projects, inspired by Rust's [Cargo](https://doc.rust-lang.org/cargo/). It aims to provide a simple, consistent, and efficient way to handle project initialization, building, running, and cleaning for C developers.
 
 ## Features
 
