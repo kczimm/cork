@@ -1,0 +1,37 @@
+name: Test Example Cork Project
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Install Rust
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      # Install GCC (for C compilation)
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y gcc
+
+      # Build cork
+      - name: Build Cork
+        run: cargo build --release
+
+      # Test the sample project
+      - name: Test Sample Project
+        run: |
+          cd examples/mathproj
+          ../../target/release/cork r
