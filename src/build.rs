@@ -1,3 +1,4 @@
+use colored::Colorize;
 use fs_extra::dir::create_all;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,7 +11,8 @@ pub fn build_project(release: bool) -> Result<PathBuf, String> {
 
     if !cork_toml_path.exists() {
         return Err(format!(
-            "error: could not find `Cork.toml` in `{}`",
+            "{}: could not find `Cork.toml` in `{}`",
+            "error".red(),
             std::env::current_dir()
                 .unwrap_or_default()
                 .to_string_lossy()
